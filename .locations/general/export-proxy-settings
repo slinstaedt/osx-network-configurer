@@ -1,0 +1,55 @@
+#!/bin/bash
+
+currentAdapter() {
+services=$(networksetup -listnetworkserviceorder | grep 'Hardware Port')
+while read line; do
+    sname=$(echo $line | awk -F  "(, )|(: )|[)]" '{print $2}')
+    sdev=$(echo $line | awk -F  "(, )|(: )|[)]" '{print $4}')
+    #echo "Current service: $sname, $sdev, $currentservice"
+    if [ -n "$sdev" ]; then
+        ifconfig $sdev 2>/dev/null | grep 'status: active' > /dev/null 2>&1
+        rc="$?"
+        if [ "$rc" -eq 0 ]; then
+            currentservice="$sname"
+        fi
+    fi
+done <<< "$(echo "$services" | tail -r)"
+
+if [ -n "$currentservice" ]; then
+    echo $currentservice
+else
+    >&2 echo "Could not find current service"
+fi
+}
+
+adapterProxyHost() {
+if [ -n "$1" ] &&  networksetup -listallnetworkservices | grep -q "$1"; then
+    if networksetup -getwebproxy "$1" | grep -iq "enabled: yes" && [ -n "$(networksetup -getwebproxy "$1" | grep "Server:"  | cut -d' ' -f2)" ]; then
+        networksetup -getwebproxy "$1" | awk {'print $2'} | awk {'getline l2; getline l3; print "http://"l2":"l3'} | head -n 1
+    fi
+fi
+}
+
+adapterProxyBypass() {
+if [ -n "$1" ] &&  networksetup -listallnetworkservices | grep -q "$1"; then
+    networksetup -getproxybypassdomains "$1"
+fi
+}
+
+ADAPTER="$(currentAdapter)"
+PROXY_HOST="$(adapterProxyHost "$ADAPTER")"
+PROXY_BYPASS="$(adapterProxyBypass "$ADAPTER" | paste -sd "," -)"
+
+if [ -n "$PROXY_HOST" ]; then
+cat > $HOME/.bash_proxy_settings << EOT
+export http_proxy=$PROXY_HOST
+export https_proxy=$PROXY_HOST
+export no_proxy=$PROXY_BYPASS
+EOT
+else
+cat > $HOME/.bash_proxy_settings << EOT
+unset http_proxy
+unset https_proxy
+unset no_proxy
+EOT
+fi

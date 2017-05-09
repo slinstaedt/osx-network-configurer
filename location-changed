@@ -1,0 +1,20 @@
+#!/bin/bash
+
+exec 2>&1 >> $HOME/Library/Logs/LocationChanged.log
+
+LOCATIONS_DIR="$HOME/.locations"
+CURRENT_LOCATION=`scselect | tail -n +2 | egrep '^\ +\*' | cut -d \( -f 2- | sed 's/)$//'`
+
+if [ -d "$LOCATIONS_DIR/general" ]; then
+    for script in $LOCATIONS_DIR/general/*; do 
+        echo "Running $script"
+        $script "$CURRENT_LOCATION"
+    done
+fi
+
+if [ -d "$LOCATIONS_DIR/$CURRENT_LOCATION" ]; then
+    for script in $LOCATIONS_DIR/$CURRENT_LOCATION/*; do
+        echo "Running $script"
+	$script "$CURRENT_LOCATION"
+    done
+fi

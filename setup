@@ -1,0 +1,67 @@
+#!/bin/bash
+
+PLIST_DIR=$HOME/Library/LaunchAgents
+realpath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+DIR=$(dirname $(realpath "$0"))
+
+case "$1" in 
+	install)
+cat > $PLIST_DIR/LocationChanger.plist << EOT
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>locationchanger</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$DIR/location-changer</string>
+    </array>
+    <key>WatchPaths</key>
+    <array>
+        <string>/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist</string>
+    </array>
+</dict>
+</plist>
+EOT
+
+cat > $PLIST_DIR/LocationChanged.plist << EOT
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>locationchanged</string>
+    <key>OnDemand</key>
+    <true/>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$DIR/location-changed</string>
+    </array>
+    <key>WatchPaths</key>
+    <array>
+        <string>/Library/Preferences/SystemConfiguration/preferences.plist</string>
+    </array>
+</dict>
+</plist>
+EOT
+
+# Avoid overwriting preferences
+[ ! -d ~/.locations ] && cp -R .locations ~/
+launchctl unload ~/Library/LaunchAgents/LocationChanger.plist
+launchctl unload ~/Library/LaunchAgents/LocationChanged.plist
+launchctl load ~/Library/LaunchAgents/LocationChanger.plist
+launchctl load ~/Library/LaunchAgents/LocationChanged.plist
+	;;
+	uninstall)
+launchctl unload ~/Library/LaunchAgents/LocationChanger.plist
+launchctl unload ~/Library/LaunchAgents/LocationChanged.plist
+rm ~/Library/LaunchAgents/LocationChanger.plist
+rm ~/Library/LaunchAgents/LocationChanged.plist
+	;;
+	*)
+	echo "Usage: $0 [install | uninstall]"
+	;;
+esac
